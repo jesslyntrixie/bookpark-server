@@ -1,0 +1,24 @@
+{
+  "name": "jasjus-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jesslyntrixie/jasjus-server.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/jesslyntrixie/jasjus-server/issues"
+  },
+  "homepage": "https://github.com/jesslyntrixie/jasjus-server#readme",
+  "dependencies": {
+    "mqtt": "^5.15.1"
+  }
+}
