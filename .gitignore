@@ -1,0 +1,8 @@
+# Secrets — never commit these
+.env
+
+# Dependencies — reinstalled from package.json, no need to commit
+node_modules/
+
+# OS / editor noise
+.DS_Store

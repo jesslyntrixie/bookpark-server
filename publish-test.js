@@ -1,15 +1,13 @@
 // publish-test.js
 // Goal: connect to our HiveMQ broker and publish one "drop" command.
 
-import mqtt from "mqtt";   // the MQTT library we installed
+import mqtt from "mqtt";  
 
-// --- Broker connection details (from your HiveMQ "Overview" tab + contract) ---
 const HOST = "5498bd475ef644588d863d458b321d09.s1.eu.hivemq.cloud";
 const PORT = 8883;                       // TLS port
-const USERNAME = "jasjus";               // the credential you made in Access Management
-const PASSWORD = "REMOVED"; // the one you created (see note below)
+const USERNAME = "jasjus";              
+const PASSWORD = "REMOVED"; 
 
-// The topic we agreed on in the contract for sending commands to the flap:
 const COMMAND_TOPIC = "flap/01/command";
 
 // "mqtts://" means secure MQTT (matches port 8883 / TLS on).
@@ -24,11 +22,9 @@ const client = mqtt.connect(brokerUrl, {
 // This runs ONCE, when we successfully connect to the broker.
 client.on("connect", () => {
   console.log("✅ Connected to the broker!");
+ 
+  const message = JSON.stringify({ command: "drop" });
 
-  // Build the message we agreed on in the contract.
-  const message = JSON.stringify({ command: "raise" });
-
-  // Publish it to the command topic.
   client.publish(COMMAND_TOPIC, message, () => {
     console.log(`📤 Sent ${message} to ${COMMAND_TOPIC}`);
     client.end();   // we're done; close the connection cleanly.

@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -19,6 +20,8 @@
   },
   "homepage": "https://github.com/jesslyntrixie/jasjus-server#readme",
   "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
     "mqtt": "^5.15.1"
   }
 }
