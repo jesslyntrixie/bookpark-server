@@ -3,13 +3,19 @@
 
 import express from "express";
 import mqtt from "mqtt";
+import "dotenv/config";  
 
-const HOST = "5498bd475ef644588d863d458b321d09.s1.eu.hivemq.cloud";
-const PORT = 8883;
-const USERNAME = "jasjus";
-const PASSWORD = "REMOVED";
+const HOST = process.env.MQTT_HOST;
+const MQTT_PORT = process.env.MQTT_PORT || 8883;
+const USERNAME = process.env.MQTT_USERNAME;
+const PASSWORD = process.env.MQTT_PASSWORD;
 const COMMAND_TOPIC = "flap/01/command";
 const STATUS_TOPIC = "flap/01/status";
+
+if (!HOST || !USERNAME || !PASSWORD) {
+  console.error("❌ Missing MQTT env vars. Copy .env.example to .env and fill it in.");
+  process.exit(1);
+}
 
 const flap = {
     flapState: "unknown",
@@ -73,7 +79,7 @@ app.get("/status", (req, res) => {
 
 app.get("/", (req, res) => res.send("JasJus server is running. POST /open to open the flap."));
 
-const WEB_PORT = 3000;
+const WEB_PORT = process.env.PORT || 3000;
 app.listen(WEB_PORT, () => {
-    console.log(`Server is listening on http://localhost:${WEB_PORT}`);
+    console.log(`Server is listening on port ${WEB_PORT}`);
 })
