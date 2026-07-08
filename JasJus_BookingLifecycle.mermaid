@@ -1,0 +1,18 @@
+stateDiagram-v2
+    note left of booked
+        booking.state values.
+        Each transition is triggered by
+        an app action or the timer.
+    end note
+
+    [*] --> booked : POST /book
+
+    booked --> active : POST /open (driver arrives)
+    booked --> cancelled : POST /cancel (before use)
+    booked --> expired : timer (no-show, timed out)
+
+    active --> done : POST /close
+
+    done --> [*]
+    cancelled --> [*]
+    expired --> [*]
