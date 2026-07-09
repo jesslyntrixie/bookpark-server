@@ -1,0 +1,38 @@
+%% ERD = the DATABASE SCHEMA. Every box here is a real SQLite table.
+%% (The Stall is NOT here: it's in-memory runtime state, not a table.
+%%  flapId is a plain text label for the single flap; it would become an
+%%  FK to a "stalls" table only if we add multiple flaps.)
+erDiagram
+    USER ||--o{ VEHICLE : "owns"
+    USER ||--o{ BOOKING : "userId"
+    VEHICLE ||--o{ BOOKING : "vehicleId"
+    BOOKING ||--o{ EVENT : "in/out log"
+
+    USER {
+        int id PK
+        string name
+    }
+
+    VEHICLE {
+        int id PK
+        int ownerId FK
+        string plate
+    }
+
+    BOOKING {
+        int id PK
+        int userId FK
+        int vehicleId FK
+        string flapId
+        string state
+        int startTime
+        int endTime
+    }
+
+    EVENT {
+        int id PK
+        int bookingId FK
+        string flapId
+        string action
+        int timestamp
+    }

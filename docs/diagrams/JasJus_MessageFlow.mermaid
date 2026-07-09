@@ -1,0 +1,40 @@
+sequenceDiagram
+    actor Driver
+    participant App as App (phone)
+    participant Server
+    participant Broker as MQTT Broker
+    participant Flap as Flap (ESP32)
+
+    Note over App,Server: App ↔ Server = HTTP
+    Note over Server,Flap: Server ↔ Flap = MQTT
+
+    rect rgb(230,245,255)
+    Note over Driver,Flap: OPEN — triggered by the app button
+    Driver->>App: tap "open"
+    App->>Server: HTTP POST /open
+    Server->>Broker: publish flap/01/command {drop}
+    Broker->>Flap: {drop}
+    Flap-->>Broker: flap/01/status {flapState:down}
+    Broker-->>Server: {flapState:down}
+    end
+
+    rect rgb(235,255,235)
+    Note over Driver,Flap: CAR ENTERS — sensor reports, server logs "in"
+    Driver->>Flap: drives in
+    Flap-->>Broker: flap/01/status {presence:occupied}
+    Broker-->>Server: {presence:occupied}
+    Note over Server: log IN event (this booking)
+    end
+
+    rect rgb(255,240,235)
+    Note over Driver,Flap: CAR LEAVES — this is "close", triggered by the sensor
+    Driver->>Flap: drives off
+    Flap-->>Broker: flap/01/status {presence:free}
+    Broker-->>Server: {presence:free}
+    Note over Server: log OUT event
+    Server->>Broker: publish flap/01/command {raise}
+    Broker->>Flap: {raise}
+    Flap-->>Broker: flap/01/status {flapState:up}
+    end
+
+    Note over Driver,Flap: booking still ACTIVE — driver may open + re-enter<br/>until endTime passes (then booking auto-ends)

@@ -1,0 +1,21 @@
+stateDiagram-v2
+    note left of booked
+        booking.state values.
+        A booking auto-ends (-> done) when its
+        window (endTime) passes, whatever state
+        it's in. No "overstay"/"expired" states:
+        a car still there after endTime is just
+        the stall "overstay" flag (only violation
+        possible — flap blocks unbooked parking).
+    end note
+
+    [*] --> booked : POST /book
+
+    booked --> active : POST /open (driver arrives)
+    booked --> cancelled : POST /cancel (before use)
+    booked --> done : endTime passes (never used)
+
+    active --> done : endTime passes (auto-end; no /close)
+
+    done --> [*]
+    cancelled --> [*]

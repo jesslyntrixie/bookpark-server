@@ -4,5 +4,10 @@
 # Dependencies — reinstalled from package.json, no need to commit
 node_modules/
 
+# SQLite database files — local data, not source
+jasjus.db
+jasjus.db-shm
+jasjus.db-wal
+
 # OS / editor noise
 .DS_Store

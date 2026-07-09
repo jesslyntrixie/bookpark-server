@@ -1,0 +1,44 @@
+stateDiagram-v2
+    note left of FREE
+        Two raw facts decide everything:
+        a live booking? (from HTTP)
+        presence (car, from MQTT sensor)
+        status is derived, not stored.
+        A booker may go in/out many times
+        during the window (RESERVED<->OCCUPIED).
+    end note
+
+    FREE : FREE
+    FREE : no live booking
+    FREE : presence = free
+
+    RESERVED : RESERVED (reserved, empty)
+    RESERVED : live booking
+    RESERVED : presence = free
+
+    OCCUPIED : OCCUPIED (booked + car)
+    OCCUPIED : live booking
+    OCCUPIED : presence = occupied
+
+    OVERSTAY : OVERSTAY (status=occupied, overstay=true)
+    OVERSTAY : booking window ended
+    OVERSTAY : presence = occupied
+
+    note right of OVERSTAY
+        "overstay" is a derived BOOLEAN, the ONLY
+        violation this system has. The flap opens
+        only for the booker, so a car can't be on
+        an unbooked spot — a car present with no
+        live booking can only be a booker who
+        stayed past their endTime.
+    end note
+
+    [*] --> FREE
+
+    FREE --> RESERVED : POST /book
+    RESERVED --> FREE : POST /cancel  or  endTime passes
+    RESERVED --> OCCUPIED : sensor: presence occupied (enter)
+    OCCUPIED --> RESERVED : sensor: presence free (leave; flap auto-raises, may return)
+
+    OCCUPIED --> OVERSTAY : endTime passes, car still present
+    OVERSTAY --> FREE : sensor: presence free (finally leaves)

@@ -1,0 +1,67 @@
+%% CLASS / DOMAIN model = the code's RUNTIME objects (NOT the DB schema).
+%% The persisted tables live in JasJus_ERD. This diagram adds the two things
+%% that exist only at runtime and are therefore absent from the ERD:
+%%   1. Stall          — the in-memory object holding the flap's latest sensor facts
+%%   2. StatusResponse — the DTO returned by GET /status (assembled per request)
+%% Rule of thumb: ERD = "what is on disk", class diagram = "what objects the code holds".
+classDiagram
+    direction LR
+
+    %% ---- Runtime, in-memory: raw sensor facts pushed by the flap over MQTT ----
+    class Stall {
+        <<runtime, in-memory — not a table>>
+        +string id
+        +string flapState
+        +string presence
+    }
+    note for Stall "Latest RAW sensor facts, \npushed by the flap over MQTT. \nOnly the newest value is kept. \nRebuilt on restart,\nnever written to the database."
+
+    %% ---- The GET /status payload: raw fields + DERIVED fields, built per call ----
+    class StatusResponse {
+        <<derived DTO — GET /status>>
+        +string id
+        +string flapState
+        +string presence
+        +int bookedBy
+        +string status
+        +bool overstay
+    }
+    note for StatusResponse "Assembled fresh on EVERY\nrequest.\nid/flapState/presence are copied\nfrom Stall. \nbookedBy/status/overstay\nare DERIVED from the active \nbooking. Stored nowhere — \ncomputed on read."
+
+    %% ---- Persisted entities (these ARE the SQLite tables in the ERD) ----
+    class Booking {
+        +int id
+        +int userId
+        +int vehicleId
+        +string flapId
+        +string state
+        +int startTime
+        +int endTime
+    }
+    class Event {
+        +int id
+        +int bookingId
+        +string flapId
+        +string action
+        +int timestamp
+    }
+    class User {
+        +int id
+        +string name
+    }
+    class Vehicle {
+        +int id
+        +int ownerId
+        +string plate
+    }
+
+    %% ---- How the runtime views are built (dashed = "depends on / derived from") ----
+    StatusResponse ..> Stall : copies raw fields
+    StatusResponse ..> Booking : derives status, overstay, bookedBy
+
+    %% ---- Persisted relationships (same as the ERD) ----
+    Booking "many" --> "1" Stall : flapId (belongs to)
+    Event "many" --> "1" Booking : in/out log
+    User "1" --> "many" Vehicle : owns
+    User "1" --> "many" Booking : places
+    Vehicle "1" --> "many" Booking : used in

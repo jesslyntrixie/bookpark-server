@@ -1,12 +1,13 @@
 // server.js
 // HTTP server for JasJus. The app calls HTTP endpoints; the server commands the
 // flap over MQTT (publish to flap/01/command) and listens to the flap's status
-// (subscribe to flap/01/status). See JasJus_Backend_Handbook.md (cards B1–B6)
-// and the diagrams: JasJus_ERD / JasJus_StallStates / JasJus_BookingLifecycle.
+// (subscribe to flap/01/status). Data is persisted in SQLite via db.js.
+// See JasJus_Backend_Handbook.md (cards B1–B6) and the diagrams.
 
 import express from "express";
 import mqtt from "mqtt";
 import "dotenv/config";
+import * as db from "./db.js";
 
 const HOST = process.env.MQTT_HOST;
 const MQTT_PORT = process.env.MQTT_PORT || 8883;
@@ -21,78 +22,53 @@ if (!HOST || !USERNAME || !PASSWORD) {
 }
 
 // ---------------------------------------------------------------------------
-// State 
-//
-//   stall    : the physical spot. Two orthogonal raw fields:
-//                presence  (car there?)      — owned by the flap (MQTT)
-//                bookedBy  (active booking?)  — owned by the app  (HTTP)
-//              There is NO stored "status" — it's derived from those two.
-//   bookings : every booking ever made, keyed by id. duration is derived.
-//   events   : in/out log (ground-truth physical crossings).
+// Runtime-only state.
+//   stall holds LIVE sensor data (flapState/presence) pushed by the flap over
+//   MQTT. This is ephemeral by nature, so it stays in memory — it is NOT
+//   persisted. Everything durable (users, vehicles, bookings, events) lives in
+//   SQLite (db.js). "bookedBy" is DERIVED from the active booking in the DB.
 // ---------------------------------------------------------------------------
 const stall = {
   id: "flap/01",
-  flapState: "unknown", // up | down      
-  presence: "unknown",  // free | occupied 
-  bookedBy: null,       // id of the active booking, or null
+  flapState: "unknown", // up | down       (from the flap)
+  presence: "unknown",  // free | occupied (from the flap)
 };
 
-const bookings = {};
-const events = [];
-const users = {};    // id -> { id, name }
-const vehicles = {}; // id -> { id, ownerId, plate }
-let nextBookingId = 1;
-let nextUserId = 1;
-let nextVehicleId = 1;
+const now = () => Math.floor(Date.now() / 1000); // epoch seconds, per the contract
 
-const now = () => Math.floor(Date.now() / 1000); 
-
-// booking.state may be one of these.
-//   booked -> active -> done          (happy path)
-//   booked -> cancelled               (driver cancels before use)
-//   booked -> expired                 (no-show, hold timed out)
-const BOOKING_STATES = ["booked", "active", "done", "cancelled", "expired"];
-
-// How long a booking is held before a no-show auto-expires.
-const BOOKING_TTL = 15 * 60; 
+const DEFAULT_DURATION = 120 * 60; // default reservation length if none given (2h)
 
 // --- Derived views (computed on read, never stored) ------------------------
 
-function deriveStatus(s) {
-  const isBooked = s.bookedBy !== null;
-  const carHere = s.presence === "occupied";
-  if (carHere && !isBooked) return "violation"; 
-  if (carHere && isBooked) return "occupied";
-  if (!carHere && isBooked) return "booked";     
+// Occupancy label for the app. Pure presence + whether a booking is live.
+// (A car present with no live booking is a violation — see /status.)
+function deriveStatus(active) {
+  if (stall.presence === "occupied") return "occupied";
+  if (active) return "booked"; // reserved, car not here yet
   return "free";
 }
 
-// A booking with its derived duration attached.
+// A booking row plus derived fields (never stored). A driver may enter/leave
+// several times per booking, so:
+//   arrivedAt = FIRST 'in', leftAt = LAST 'out'   (from the events log)
+//   actualDuration = leftAt - arrivedAt            (whole span they held the spot)
+//   plannedDuration = the reserved length          (from the window)
 function bookingView(b) {
+  const arrivedAt = db.getFirstEventTime(b.id, "in");
+  const leftAt = db.getLastEventTime(b.id, "out");
   return {
     ...b,
-    duration: b.endTime ? b.endTime - b.startTime : null, // seconds, derived
+    plannedDuration: b.endTime - b.startTime,
+    arrivedAt,
+    leftAt,
+    actualDuration: arrivedAt && leftAt ? leftAt - arrivedAt : null,
   };
 }
 
-// A user with their vehicles attached (vehicles derived by ownerId).
+// A user row plus their vehicles.
 function userView(u) {
-  return {
-    ...u,
-    vehicles: Object.values(vehicles).filter((v) => v.ownerId === u.id),
-  };
+  return { ...u, vehicles: db.vehiclesByOwner(u.id) };
 }
-
-// True if this user already holds a live booking (booked or active).
-// Enforces: only one of a user's vehicles can have an active booking at a time.
-function userHasLiveBooking(userId) {
-  return Object.values(bookings).some(
-    (b) => b.userId === userId && (b.state === "booked" || b.state === "active")
-  );
-}
-
-
-
 
 // ---------------------------------------------------------------------------
 // MQTT
@@ -112,6 +88,7 @@ mqttClient.on("connect", () => {
 
 mqttClient.on("error", (err) => console.error("❌ MQTT connection error:", err.message));
 
+// B5 — the flap's status updates our live sensor fields.
 mqttClient.on("message", (topic, payload) => {
   let data;
   try {
@@ -121,29 +98,36 @@ mqttClient.on("message", (topic, payload) => {
     return;
   }
   console.log(`📥 Received message on ${topic}: `, data);
-
   if (data.flapState) stall.flapState = data.flapState;
-  if (data.presence) stall.presence = data.presence;
+
+  // Presence transitions ARE the in/out log, and drive the auto-close:
+  //   occupied -> log "in"            (car entered; flap was dropped by /open)
+  //   free     -> log "out" + raise   ("close" — car left, so raise the flap)
+  // A car can enter/leave many times within one booking; the booking stays
+  // active until endTime. This is the source of arrival/leave times + duration.
+  if (data.presence && data.presence !== stall.presence) {
+    stall.presence = data.presence;
+    const active = db.getActiveBooking(now());
+    if (data.presence === "occupied") {
+      if (active) db.addEvent(active.id, stall.id, "in", now());
+    } else if (data.presence === "free") {
+      if (active) db.addEvent(active.id, stall.id, "out", now());
+      publish("raise"); // auto-close: car gone, protect the spot again
+    }
+  } else if (data.presence) {
+    stall.presence = data.presence;
+  }
 });
 
-function publishCommand(command, res, onSuccess) {
-  if (!mqttClient.connected) {
-    return res.status(503).json({ error: "Not connected to MQTT broker" });
-  }
-  const message = JSON.stringify({ command });
-  mqttClient.publish(COMMAND_TOPIC, message, (err) => {
-    if (err) {
-      console.error("Publish failed: ", err.message);
-      return res.status(500).json({ error: "Failed to publish command" });
-    }
-    console.log(`📤 Sent ${message} to ${COMMAND_TOPIC}`);
-    onSuccess();
+// Publish a command to the flap. Returns false if the broker is down.
+function publish(command) {
+  if (!mqttClient.connected) return false;
+  mqttClient.publish(COMMAND_TOPIC, JSON.stringify({ command }), (err) => {
+    if (err) console.error("Publish failed: ", err.message);
+    else console.log(`📤 Sent {command:"${command}"} to ${COMMAND_TOPIC}`);
   });
+  return true;
 }
-
-
-
-
 
 // ---------------------------------------------------------------------------
 // HTTP
@@ -152,15 +136,26 @@ const app = express();
 app.use(express.json());
 
 app.get("/", (req, res) =>
-  res.send("JasJus server is running. POST /book, /open, /close.")
+  res.send("JasJus server is running. POST /book to reserve, /open to drop the flap.")
 );
 
+// Raw sensor fields + derived status + active booking id + overstay flag.
+// The flap only opens for the booker, so unbooked parking is impossible — a car
+// present with NO live booking can only mean the booker stayed past endTime.
+// Hence the single violation this system has is OVERSTAY.
 app.get("/status", (req, res) => {
-  res.json({ ...stall, status: deriveStatus(stall) });
+  const active = db.getActiveBooking(now());
+  const overstay = stall.presence === "occupied" && !active;
+  res.json({
+    ...stall,
+    bookedBy: active ? active.id : null,
+    status: deriveStatus(active),
+    overstay,
+  });
 });
 
 app.get("/booking/:id", (req, res) => {
-  const booking = bookings[req.params.id];
+  const booking = db.getBooking(req.params.id);
   if (!booking) return res.status(404).json({ error: "Booking not found" });
   res.json({ ok: true, booking: bookingView(booking) });
 });
@@ -170,15 +165,13 @@ app.get("/booking/:id", (req, res) => {
 app.post("/users", (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: "name is required" });
-
-  const id = String(nextUserId++);
-  users[id] = { id, name };
-  console.log(`User ${id} created: ${name}`);
-  res.json({ ok: true, user: userView(users[id]) });
+  const user = db.createUser(name);
+  console.log(`User ${user.id} created: ${name}`);
+  res.json({ ok: true, user: userView(user) });
 });
 
 app.get("/users/:id", (req, res) => {
-  const user = users[req.params.id];
+  const user = db.getUser(req.params.id);
   if (!user) return res.status(404).json({ error: "User not found" });
   res.json({ ok: true, user: userView(user) });
 });
@@ -190,16 +183,14 @@ app.post("/vehicles", (req, res) => {
   if (!ownerId || !plate) {
     return res.status(400).json({ error: "ownerId and plate are required" });
   }
-  if (!users[ownerId]) return res.status(404).json({ error: "Owner (user) not found" });
-
-  const id = String(nextVehicleId++);
-  vehicles[id] = { id, ownerId, plate };
-  console.log(`Vehicle ${id} (${plate}) registered to user ${ownerId}`);
-  res.json({ ok: true, vehicle: vehicles[id] });
+  if (!db.getUser(ownerId)) return res.status(404).json({ error: "Owner (user) not found" });
+  const vehicle = db.createVehicle(ownerId, plate);
+  console.log(`Vehicle ${vehicle.id} (${plate}) registered to user ${ownerId}`);
+  res.json({ ok: true, vehicle });
 });
 
 app.get("/vehicles/:id", (req, res) => {
-  const vehicle = vehicles[req.params.id];
+  const vehicle = db.getVehicle(req.params.id);
   if (!vehicle) return res.status(404).json({ error: "Vehicle not found" });
   res.json({ ok: true, vehicle });
 });
@@ -207,104 +198,77 @@ app.get("/vehicles/:id", (req, res) => {
 // --- Bookings --------------------------------------------------------------
 
 app.post("/book", (req, res) => {
-  const { userId, vehicleId } = req.body;
+  const { userId, vehicleId, durationMinutes } = req.body;
   if (!userId || !vehicleId) {
     return res.status(400).json({ error: "userId and vehicleId are required" });
   }
 
-  // Validate the user and vehicle, and that the vehicle belongs to the user.
-  const user = users[userId];
+  const user = db.getUser(userId);
   if (!user) return res.status(404).json({ error: "User not found" });
-  const vehicle = vehicles[vehicleId];
+  const vehicle = db.getVehicle(vehicleId);
   if (!vehicle) return res.status(404).json({ error: "Vehicle not found" });
-  if (vehicle.ownerId !== userId) {
+  if (String(vehicle.ownerId) !== String(userId)) {
     return res.status(403).json({ error: "Vehicle does not belong to this user" });
   }
 
-  // One live booking per user (only one of their vehicles at a time).
-  if (userHasLiveBooking(userId)) {
+  const t = now();
+  if (db.getUserLiveBooking(userId, t)) {
     return res.status(409).json({ error: "User already has an active booking" });
   }
-  if (stall.bookedBy) return res.status(409).json({ error: "Flap is already booked" });
+  if (db.getActiveBooking(t)) {
+    return res.status(409).json({ error: "Flap is already booked" });
+  }
 
-  const id = String(nextBookingId++);
-  const startTime = now();
-  bookings[id] = {
-    id,
-    userId,
-    vehicleId,
-    flapId: stall.id,
-    state: "booked",
-    startTime,
-    expiry: startTime + BOOKING_TTL,
-    endTime: null,
-  };
-  stall.bookedBy = id;
+  // Reserve a window [startTime, endTime]. The booking auto-ends at endTime.
+  const startTime = t;
+  const duration = durationMinutes > 0 ? durationMinutes * 60 : DEFAULT_DURATION;
+  const endTime = startTime + duration;
 
-  console.log(`Booking ${id} created for user ${userId}, vehicle ${vehicle.plate}`);
-  res.json({ ok: true, booking: bookingView(bookings[id]) });
+  const booking = db.createBooking(userId, vehicleId, stall.id, startTime, endTime);
+  console.log(`Booking ${booking.id} created for user ${userId}, vehicle ${vehicle.plate} (${duration / 60} min)`);
+  res.json({ ok: true, booking: bookingView(booking) });
 });
 
+// Drop the flap so the car can enter. First open moves booked -> active; may be
+// called again to re-enter during the window. There is no /close: the flap
+// raises automatically when the sensor reports the car has left (see MQTT
+// handler), and the booking ends on its own when endTime passes.
 app.post("/open", (req, res) => {
   const { bookingId } = req.body;
   if (!bookingId) return res.status(400).json({ error: "bookingId is required" });
-  const booking = bookings[bookingId];
+  const booking = db.getBooking(bookingId);
   if (!booking || !["booked", "active"].includes(booking.state)) {
     return res.status(403).json({ error: "No valid booking for this flap" });
   }
 
-  publishCommand("drop", res, () => {
-    booking.state = "active";
-    events.push({ flapId: stall.id, action: "in", timestamp: now() });
-    res.json({ ok: true, message: "flap opening" });
-  });
-});
-
-app.post("/close", (req, res) => {
-  const { bookingId } = req.body;
-  if (!bookingId) return res.status(400).json({ error: "bookingId is required" });
-  const booking = bookings[bookingId];
-  if (!booking || booking.state !== "active") {
-    return res.status(403).json({ error: "No active booking to close" });
+  if (!publish("drop")) {
+    return res.status(503).json({ error: "Not connected to MQTT broker" });
   }
-
-  publishCommand("raise", res, () => {
-    booking.endTime = now();
-    booking.state = "done";
-    events.push({ flapId: stall.id, action: "out", timestamp: booking.endTime });
-
-    stall.bookedBy = null; 
-
-    console.log(`Booking ${booking.id} closed. Duration: ${booking.endTime - booking.startTime}s`);
-    res.json({ ok: true, message: "flap raising", booking: bookingView(booking) });
-  });
+  if (booking.state === "booked") db.setBookingState(booking.id, "active");
+  res.json({ ok: true, message: "flap opening" });
 });
 
+// booked -> cancelled (no flap command; it was never opened)
 app.post("/cancel", (req, res) => {
   const { bookingId } = req.body;
   if (!bookingId) return res.status(400).json({ error: "bookingId is required" });
-  const booking = bookings[bookingId];
+  const booking = db.getBooking(bookingId);
   if (!booking || booking.state !== "booked") {
     return res.status(403).json({ error: "Only a booked (not-yet-open) booking can be cancelled" });
   }
-
-  booking.state = "cancelled";
-  if (stall.bookedBy === booking.id) stall.bookedBy = null;
-
+  const cancelled = db.setBookingState(booking.id, "cancelled");
   console.log(`Booking ${booking.id} cancelled`);
-  res.json({ ok: true, message: "booking cancelled", booking: bookingView(booking) });
+  res.json({ ok: true, message: "booking cancelled", booking: bookingView(cancelled) });
 });
 
+// Auto-end sweep: when a booking's window (endTime) has passed, mark it done
+// and free the stall — whether or not the driver ever opened or closed it.
 setInterval(() => {
-  const t = now();
-  for (const b of Object.values(bookings)) {
-    if (b.state === "booked" && t > b.expiry) {
-      b.state = "expired";
-      if (stall.bookedBy === b.id) stall.bookedBy = null;
-      console.log(`Booking ${b.id} expired (no-show)`);
-    }
+  for (const b of db.getFinishedBookings(now())) {
+    db.setBookingState(b.id, "done");
+    console.log(`Booking ${b.id} auto-ended (booking time finished)`);
   }
-}, 30 * 1000); 
+}, 30 * 1000);
 
 const WEB_PORT = process.env.PORT || 3000;
 app.listen(WEB_PORT, () => {

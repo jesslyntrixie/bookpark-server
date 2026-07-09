@@ -34,8 +34,8 @@ post "/vehicles" '{"ownerId":"99","plate":"X0000XX"}'
 step "5. Get user 1  (expect: Gaby with 1 vehicle)"
 get "/users/1"
 
-step "6. Book with user 1 + vehicle 1  (expect: booking id 1, state booked)"
-post "/book" '{"userId":"1","vehicleId":"1"}'
+step "6. Book user 1 + vehicle 1 for 120 min  (expect: id 1, booked, endTime set, plannedDuration 7200)"
+post "/book" '{"userId":"1","vehicleId":"1","durationMinutes":120}'
 
 step "7. Book again while live  (expect: 409 already has active booking)"
 post "/book" '{"userId":"1","vehicleId":"1"}'
@@ -43,17 +43,19 @@ post "/book" '{"userId":"1","vehicleId":"1"}'
 step "8. Open the flap  (expect: flap opening; booking -> active)"
 post "/open" '{"bookingId":"1"}'
 
-step "9. Status  (expect: bookedBy 1, status booked/occupied)"
+step "9. Status  (expect: bookedBy 1, overstay false)"
 get "/status"
 
-step "10. Close the session  (expect: state done, duration number)"
-post "/close" '{"bookingId":"1"}'
+step "10. Open again (re-enter mid-booking)  (expect: flap opening; still active)"
+post "/open" '{"bookingId":"1"}'
 
-step "11. Status again  (expect: bookedBy null, status free)"
-get "/status"
-
-step "12. Book once more  (expect: works again, booking id 2)"
-post "/book" '{"userId":"1","vehicleId":"1"}'
+step "11. Try /cancel an active booking  (expect: 403 only booked can cancel)"
+post "/cancel" '{"bookingId":"1"}'
 
 echo
 echo "=== done ==="
+echo
+echo "NOTE: there is no /close. The flap auto-raises when the sensor reports the"
+echo "car left, and the booking ends on its own at endTime. In/out times + actual"
+echo "duration only populate when a real flap publishes presence over MQTT."
+echo "To re-run cleanly, reset the DB:  rm -f jasjus.db jasjus.db-shm jasjus.db-wal"

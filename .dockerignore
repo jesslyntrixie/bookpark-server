@@ -1,0 +1,27 @@
+# Keep these OUT of the image (like .gitignore, but for Docker builds).
+# NOTE: .dockerignore does NOT support trailing/inline comments — each pattern
+# must be on its own line, or it won't match.
+
+# Reinstalled inside the image by "npm install" (must NOT copy the host's
+# macOS build — that causes "invalid ELF header" on Linux).
+node_modules
+
+# Secrets — passed at runtime with --env-file, never baked into the image.
+.env
+
+# Local database + its WAL/SHM companions.
+jasjus.db
+jasjus.db-shm
+jasjus.db-wal
+
+# Git + docs — not needed to run the server.
+.git
+.gitignore
+docs
+*.md
+*.pdf
+test.sh
+
+# Compose / proxy config — used by docker-compose, not inside the app image.
+docker-compose.yml
+nginx.conf

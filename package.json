@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/jesslyntrixie/jasjus-server#readme",
   "dependencies": {
+    "better-sqlite3": "^11.8.1",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "mqtt": "^5.15.1"

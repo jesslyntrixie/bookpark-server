@@ -49,12 +49,42 @@ Broker is **live**. Connection details (in the contract, section 0):
 
 ## Part 3 — The data model (keep it tiny)
 
-**Stall/Flap** `{ id, flapState (up/down), status (free/booked/occupied), bookedBy }`
-**Booking** `{ id, userId, flapId, pass, startTime, expiry, state }`
-**User** `{ id, name, vehiclePlate }`
-**Event** `{ flapId, action (in/out), timestamp }` — epoch seconds; for duration
+> **Note:** the sketch below is the original v2 plan. The **canonical, current**
+> data model is the ERD/class diagram in `docs/diagrams/` (which now reflects the
+> built system: separate `Vehicle` entity, a reserved `[startTime, endTime]`
+> window that auto-ends, in/out times in `Event` (not the booking), and
+> `status`/`duration`/`overstay` derived rather than stored). Kept for history.
+
+**Stall/Flap** `{ id, flapState (up/down), presence, bookedBy }` — `status`, `overstay` derived
+**Booking** `{ id, userId, vehicleId, flapId, state, startTime, endTime }`
+**User** `{ id, name }` — vehicles are their own entity now
+**Vehicle** `{ id, ownerId, plate }`
+**Event** `{ id, bookingId, flapId, action (in/out), timestamp }` — the in/out log; source of actual duration
 
 Resist adding fields you won't use in two weeks.
+
+### Stored (database) vs runtime (memory)
+
+Not everything above is a database table. The rule:
+
+> **Store what you'd lose forever on a restart and can't get back. Keep in
+> memory what a device re-sends, or what you can recompute from stored data.**
+
+- **Stored — SQLite tables** (survive restarts): `users`, `vehicles`,
+  `bookings`, `events`. Nothing else re-creates these, so they must persist.
+  *These four are the ERD (`JasJus_ERD`).*
+- **Runtime — in server memory** (rebuilt on each start): the **Stall** object
+  (`flapState`, `presence`) — the flap re-reports these over MQTT within
+  seconds, so there's no need to save them. And `bookedBy` / `status` /
+  `overstay` are **derived** from the `bookings` table on demand, never stored.
+
+That's why the **ERD shows only the 4 tables**, while the **class/domain
+diagram** (`JasJus_Data_Model`) also shows `Stall`, marked *runtime, not stored*.
+An ERD models the database; a class diagram models the code's objects.
+
+> Multi-flap later: the flaps' **identity/config** (which flaps exist) would
+> become a real `stalls` table (so `bookings.flapId` becomes a true FK); each
+> flap's **live sensor state** would stay a runtime lookup keyed by flap id.
 
 ---
 
