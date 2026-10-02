@@ -11,3 +11,6 @@ jasjus.db-wal
 
 # OS / editor noise
 .DS_Store
+
+# macOS FUSE temp files
+.fuse_hidden*
