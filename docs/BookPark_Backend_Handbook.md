@@ -1,4 +1,4 @@
-# JasJus Smart Parking — Backend Owner's Handbook (v2)
+# BookPark Smart Parking — Backend Owner's Handbook (v2)
 
 *Your personal source of truth. Updated after our decisions: MQTT broker chosen + live, Node.js as the server (Firebase as ripcord), contract issued to IoT.*
 
@@ -39,7 +39,7 @@ Broker is **live**. Connection details (in the contract, section 0):
 - Username / Password: *(created in Access Management — kept in the contract, not here)*
 - Credential permission: **Publish and Subscribe**
 
-**The contract (`JasJus_IoT_Server_Contract.md`) is the source of truth for the interface.** The two channels:
+**The contract (`BookPark_IoT_Server_Contract.md`) is the source of truth for the interface.** The two channels:
 - Server **publishes** commands → topic `flap/01/command` → `{"command":"drop"}` / `{"command":"raise"}`
 - Flap **publishes** status → topic `flap/01/status` → `{"flapState":"down"}`, `{"presence":"occupied"}`, etc. Your server **subscribes** here.
 
@@ -72,14 +72,14 @@ Not everything above is a database table. The rule:
 
 - **Stored — SQLite tables** (survive restarts): `users`, `vehicles`,
   `bookings`, `events`. Nothing else re-creates these, so they must persist.
-  *These four are the ERD (`JasJus_ERD`).*
+  *These four are the ERD (`BookPark_ERD`).*
 - **Runtime — in server memory** (rebuilt on each start): the **Stall** object
   (`flapState`, `presence`) — the flap re-reports these over MQTT within
   seconds, so there's no need to save them. And `bookedBy` / `status` /
   `overstay` are **derived** from the `bookings` table on demand, never stored.
 
 That's why the **ERD shows only the 4 tables**, while the **class/domain
-diagram** (`JasJus_Data_Model`) also shows `Stall`, marked *runtime, not stored*.
+diagram** (`BookPark_Data_Model`) also shows `Stall`, marked *runtime, not stored*.
 An ERD models the database; a class diagram models the code's objects.
 
 > Multi-flap later: the flaps' **identity/config** (which flaps exist) would
@@ -166,4 +166,4 @@ An ERD models the database; a class diagram models the code's objects.
 
 ---
 
-*Companions: `JasJus_IoT_Server_Contract.md` (the interface — sent to IoT), `JasJus_Parking_Architecture.md` (whole system), `JasJus_Tech_Kanban.md` (all streams). Your cards: B1–B6 + INT1/INT2/INT3.*
+*Companions: `BookPark_IoT_Server_Contract.md` (the interface — sent to IoT), `BookPark_Parking_Architecture.md` (whole system), `BookPark_Tech_Kanban.md` (all streams). Your cards: B1–B6 + INT1/INT2/INT3.*

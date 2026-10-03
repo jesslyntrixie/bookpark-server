@@ -10,9 +10,9 @@ node_modules
 .env
 
 # Local database + its WAL/SHM companions.
-jasjus.db
-jasjus.db-shm
-jasjus.db-wal
+bookpark.db
+bookpark.db-shm
+bookpark.db-wal
 
 # Git + docs — not needed to run the server.
 .git

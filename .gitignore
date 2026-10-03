@@ -5,9 +5,9 @@
 node_modules/
 
 # SQLite database files — local data, not source
-jasjus.db
-jasjus.db-shm
-jasjus.db-wal
+bookpark.db
+bookpark.db-shm
+bookpark.db-wal
 
 # OS / editor noise
 .DS_Store

@@ -16,9 +16,9 @@ services:
     build: .                       # build from the Dockerfile in this folder
     env_file: .env                 # broker secrets, same as before
     environment:
-      DB_PATH: /app/data/jasjus.db # database lives on the volume below
+      DB_PATH: /app/data/bookpark.db # database lives on the volume below
     volumes:
-      - jasjus-data:/app/data      # persist the SQLite db across restarts
+      - bookpark-data:/app/data      # persist the SQLite db across restarts
     # NOTE: no "ports:" here on purpose — the app is only reachable from inside
     # the compose network (by nginx), not from your Mac directly.
 
@@ -32,4 +32,4 @@ services:
       - server                     # start server first
 
 volumes:
-  jasjus-data:                     # the named volume (same data as before)
+  bookpark-data:                     # the named volume (same data as before)

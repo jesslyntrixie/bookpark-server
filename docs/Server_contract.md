@@ -11,7 +11,7 @@ We're using an MQTT broker. Both the server and the ESP32 connect to it.
 | Broker provider | HiveMQ Cloud |
 | Broker host / URL | 5498bd475ef644588d863d458b321d09.s1.eu.hivemq.cloud|
 | Port | 8883 |
-| Username | jasjus |
+| Username | (stored outside the repo) |
 | Password | (stored outside the repo)|
 | (note) TLS on? | yes |
 

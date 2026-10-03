@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end smoke test for the JasJus server.
+# End-to-end smoke test for the BookPark server.
 # Run the server in one terminal (npm start), then in another: ./test.sh
 # NOTE: start from a FRESH server (state is in-memory) so ids are 1, 1, 1.
 
@@ -58,4 +58,4 @@ echo
 echo "NOTE: there is no /close. The flap auto-raises when the sensor reports the"
 echo "car left, and the booking ends on its own at endTime. In/out times + actual"
 echo "duration only populate when a real flap publishes presence over MQTT."
-echo "To re-run cleanly, reset the DB:  rm -f jasjus.db jasjus.db-shm jasjus.db-wal"
+echo "To re-run cleanly, reset the DB:  rm -f bookpark.db bookpark.db-shm bookpark.db-wal"

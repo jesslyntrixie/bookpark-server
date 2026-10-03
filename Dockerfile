@@ -1,4 +1,4 @@
-# Dockerfile — recipe to package the JasJus server into a runnable image.
+# Dockerfile — recipe to package the BookPark server into a runnable image.
 
 # 1. Base image: Node 22 on slim Debian. "slim" = small but glibc-based, so
 #    better-sqlite3's prebuilt binary works without compiling from source.

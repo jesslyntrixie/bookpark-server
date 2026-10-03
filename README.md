@@ -2,7 +2,7 @@
 
 **The backend for BookPark, a smart parking reservation system: drivers book a spot in an iOS app, and a physical flap holds the spot until they arrive.**
 
-Built for the Apple Developer Academy (Challenge 3, June to July 2026) by a team of 6 under the name JASJUS. I was the backend developer and wrote everything in this repo. The iOS app and the ESP32 firmware were built by teammates; this server is the bridge between them.
+Built for the Apple Developer Academy (Challenge 3, June to July 2026) by a team of 6. I was the backend developer and wrote everything in this repo. The iOS app and the ESP32 firmware were built by teammates; this server is the bridge between them.
 
 <p align="center">
   <img src="docs/images/hardware.jpg" width="280" alt="ESP32 prototype with ultrasonic sensor and servo flap">

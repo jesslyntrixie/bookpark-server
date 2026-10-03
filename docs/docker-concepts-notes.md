@@ -1,6 +1,6 @@
 # Docker Concepts — My Notes
 
-Personal reference for the JasJus server. Written in plain language, built around the
+Personal reference for the BookPark server. Written in plain language, built around the
 analogies that finally made it click.
 
 ---
@@ -26,7 +26,7 @@ userland + runtime + system libs + app) *and* isolates it in a sandbox.
 |-------|------------|---------|----------------|
 | **Image** | A blueprint. Built or downloaded. Doesn't run. | An **installed app** just sitting there | Docker's storage on my Mac |
 | **Container** | An image **brought to life and running** | The app **while it's open** and running | A running program on my Mac (run by Docker) |
-| **Volume** (e.g. `jasjus-data`) | A **folder** for saving data | A **filing cabinet**, bolted down outside | Docker's hidden storage on my Mac |
+| **Volume** (e.g. `bookpark-data`) | A **folder** for saving data | A **filing cabinet**, bolted down outside | Docker's hidden storage on my Mac |
 
 Core analogy (same as classes/objects):
 - **Image = class** (blueprint, built once)
@@ -73,7 +73,7 @@ Standard Linux folder conventions: `/etc` = config, `/app` = the app, `/var/lib/
 
 **A mount is a DOORWAY, not a copy.** One folder/file, reached from two sides.
 
-- The database **physically lives in `jasjus-data`** (Docker's hidden storage on my Mac).
+- The database **physically lives in `bookpark-data`** (Docker's hidden storage on my Mac).
 - `/app/data` is just the **door in the container's wall** that opens into that exact folder.
 - So the data is **NOT in two places** — it's one folder with two names.
   (Like a shared Google Drive folder showing as "MyDrive" on my laptop and "/storage/drive"
@@ -85,18 +85,18 @@ borrowing a doorway; the real folder was never inside it.
 ### Reading a mount line: `SOURCE:TARGET`
 - **TARGET** (right of `:`) = always a folder **inside the container**.
 - **SOURCE** (left of `:`) = where the storage comes from. Two cases:
-  - **A name, no slash** (`jasjus-data`) → a **named volume** = Docker-managed storage in its
+  - **A name, no slash** (`bookpark-data`) → a **named volume** = Docker-managed storage in its
     hidden area. NOT in my repo.
   - **A path with a slash** (`./nginx.conf`) → a **bind mount** = a real file/folder from my Mac.
 
 ### The two kinds of volume in my compose file
 | Line | Type | Meaning |
 |------|------|---------|
-| `jasjus-data:/app/data` (server) | **named volume** | Docker's managed box, mounted at `/app/data`. Keeps my DB. |
+| `bookpark-data:/app/data` (server) | **named volume** | Docker's managed box, mounted at `/app/data`. Keeps my DB. |
 | `./nginx.conf:/etc/.../default.conf:ro` (nginx) | **bind mount** | My real file, mounted read-only into nginx. |
 
 ### Global `volumes:` vs service `volumes:` — the connection
-- **Top-level `volumes: jasjus-data:`** = *declares/creates* the box (in Docker's hidden storage).
+- **Top-level `volumes: bookpark-data:`** = *declares/creates* the box (in Docker's hidden storage).
 - **`volumes:` under a service** = *plugs that box in* to that container.
 - **Same name = same one box.** Declared once at the top, used below — exactly like a variable.
 - **Rule (not just style):** use a named volume → I **must** declare it up top (or Compose errors).
@@ -186,7 +186,7 @@ Two reasons `down` matters:
 **Habit:** Ctrl-C to stop now → `docker compose down` to tidy up. (A foreground run can get
 away with just Ctrl-C, but `down` is the clean version.)
 
-**⚠️ My data is safe:** `docker compose down` does **NOT** delete the `jasjus-data` volume —
+**⚠️ My data is safe:** `docker compose down` does **NOT** delete the `bookpark-data` volume —
 the database survives. Only `docker compose down -v` (with `-v`) wipes volumes. So never add
 `-v` and the data always persists.
 

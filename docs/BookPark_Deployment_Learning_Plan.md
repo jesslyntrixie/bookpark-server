@@ -1,6 +1,6 @@
-# JasJus Smart Parking — Deployment & Hosting Learning Plan (v1)
+# BookPark Smart Parking — Deployment & Hosting Learning Plan (v1)
 
-*Companion to `JasJus_Backend_Handbook.md`. The handbook covers **building** the server (cards B1–B6: get Node talking to the flap over MQTT). It deliberately said "Skip: hosting." This document is that skipped phase — **how the finished server gets to run somewhere real** — turned into a learning ladder.*
+*Companion to `BookPark_Backend_Handbook.md`. The handbook covers **building** the server (cards B1–B6: get Node talking to the flap over MQTT). It deliberately said "Skip: hosting." This document is that skipped phase — **how the finished server gets to run somewhere real** — turned into a learning ladder.*
 
 > **Read this after** your server works locally (handbook B1–B5 basically done: it connects to HiveMQ, publishes "drop", subscribes to status). This is phase 2: **deployment + backend infrastructure**, structured so you learn Docker, nginx, and tunnels properly instead of just copy-pasting.
 
@@ -27,9 +27,9 @@ Your handbook got the server **working**. This plan gets it **hosted** — runni
 | Good for | **Pull:** client asks, server answers | **Push:** server holds an open connection and catches incoming messages |
 | Your `flap` in-memory state | Wiped after every request | Stays alive |
 | Your MQTT connection | Nothing to push to between requests | Connection stays open, always listening |
-| Works for JasJus? | ❌ No | ✅ Yes |
+| Works for BookPark? | ❌ No | ✅ Yes |
 
-**Why JasJus *must* be a persistent process:** MQTT is **push**. The flap device shoves a status message at your server on a connection that has to already be open. There's no HTTP request to "wake up" a serverless function, so a serverless host has nothing to receive it. Your server has to be a process that stays awake holding that connection open. That's the whole reason we're not using Vercel — it's not "harder," it's structurally incompatible.
+**Why BookPark *must* be a persistent process:** MQTT is **push**. The flap device shoves a status message at your server on a connection that has to already be open. There's no HTTP request to "wake up" a serverless function, so a serverless host has nothing to receive it. Your server has to be a process that stays awake holding that connection open. That's the whole reason we're not using Vercel — it's not "harder," it's structurally incompatible.
 
 > Keep this handy: **HTTP = pull (refactors to serverless fine). MQTT = push (needs a persistent process).** Your app is both, so the MQTT half decides it: persistent.
 

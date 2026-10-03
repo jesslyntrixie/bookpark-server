@@ -1,5 +1,5 @@
 {
-  "name": "jasjus-server",
+  "name": "bookpark-server",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,16 +9,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jesslyntrixie/jasjus-server.git"
+    "url": "git+https://github.com/jesslyntrixie/bookpark-server.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/jesslyntrixie/jasjus-server/issues"
+    "url": "https://github.com/jesslyntrixie/bookpark-server/issues"
   },
-  "homepage": "https://github.com/jesslyntrixie/jasjus-server#readme",
+  "homepage": "https://github.com/jesslyntrixie/bookpark-server#readme",
   "dependencies": {
     "better-sqlite3": "^11.8.1",
     "dotenv": "^16.6.1",

@@ -1,8 +1,8 @@
 // server.js
-// HTTP server for JasJus. The app calls HTTP endpoints; the server commands the
+// HTTP server for BookPark. The app calls HTTP endpoints; the server commands the
 // flap over MQTT (publish to flap/01/command) and listens to the flap's status
 // (subscribe to flap/01/status). Data is persisted in SQLite via db.js.
-// See JasJus_Backend_Handbook.md (cards B1–B6) and the diagrams.
+// See BookPark_Backend_Handbook.md (cards B1–B6) and the diagrams.
 
 import express from "express";
 import mqtt from "mqtt";
@@ -136,7 +136,7 @@ const app = express();
 app.use(express.json());
 
 app.get("/", (req, res) =>
-  res.send("JasJus server is running. POST /book to reserve, /open to drop the flap.")
+  res.send("BookPark server is running. POST /book to reserve, /open to drop the flap.")
 );
 
 // Raw sensor fields + derived status + active booking id + overstay flag.

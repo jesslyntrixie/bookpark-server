@@ -1,13 +1,13 @@
 // db.js
-// SQLite persistence for JasJus, using better-sqlite3 (synchronous API).
+// SQLite persistence for BookPark, using better-sqlite3 (synchronous API).
 // This module owns the database: it creates the tables and exposes small
 // functions so server.js never writes raw SQL. Data survives restarts.
 
 import Database from "better-sqlite3";
 
 // Opens (or creates) the database file. Path is configurable via DB_PATH so it
-// can point at a mounted volume in Docker; defaults to jasjus.db locally.
-const db = new Database(process.env.DB_PATH || "jasjus.db");
+// can point at a mounted volume in Docker; defaults to bookpark.db locally.
+const db = new Database(process.env.DB_PATH || "bookpark.db");
 db.pragma("journal_mode = WAL"); // better concurrency + durability
 
 // --- Schema (runs once; IF NOT EXISTS makes it safe on every boot) ----------
