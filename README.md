@@ -10,6 +10,10 @@ Built for the Apple Developer Academy (Challenge 3, June to July 2026) by a team
   <img src="docs/images/app-booking.jpg" width="280" alt="BookPark iOS app next to the flap prototype">
 </p>
 
+**▶ [Watch the demo](https://youtube.com/shorts/F142TTkJwcg)**: the iOS app and the flap prototype working together on real hardware.
+
+**iOS app:** [gabriellaawidd/BookingParking](https://github.com/gabriellaawidd/BookingParking), built by my teammates against the API contract in [`docs/Frontend_contract.md`](docs/Frontend_contract.md).
+
 ## What it does
 
 - **REST API for the iOS app:** users, vehicles and bookings, with validation and clear error codes (400, 403, 404, 409, 503).
